@@ -9,7 +9,7 @@ struct MonitorMenuView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             Divider()
-            section("CPU") {
+            section("CPU", color: Macaron.sakura) {
                 metricGroup([
                     ("使用率", MetricFormatters.percent(store.current.cpu.usage)),
                     ("频率", frequencyText(store.current.cpu.frequencyMHz))
@@ -18,33 +18,31 @@ struct MonitorMenuView: View {
                     perCoreChart(store.current.cpu.perCoreUsage, labels: store.current.cpu.perCoreLabels)
                 }
             }
-            section("GPU") {
+            section("GPU", color: Macaron.mint) {
                 metricGroup([
                     ("使用率", MetricFormatters.percent(store.current.gpu.usage)),
                     ("功耗", MetricFormatters.watts(store.current.gpu.powerWatts))
                 ])
             }
-            section("内存") {
+            section("内存", color: Macaron.cream, badge: MacaronBadge(text: pressureText(store.current.memory.pressure), color: pressureColor(store.current.memory.pressure))) {
                 metricGroup([
                     ("已用", "\(MetricFormatters.bytes(store.current.memory.usedBytes)) / \(MetricFormatters.bytes(store.current.memory.totalBytes))"),
-                    ("压力", pressureText(store.current.memory.pressure)),
                     ("Swap", MetricFormatters.bytes(store.current.memory.swapUsedBytes))
                 ])
             }
-            section("电池") {
+            section("电池", color: Macaron.peach, badge: MacaronBadge(text: store.current.battery.isCharging == true ? "充电中" : "未充电", color: batteryStatusColor())) {
                 metricGroup([
                     ("电量", MetricFormatters.percent(store.current.battery.percent)),
-                    ("功率", MetricFormatters.watts(store.current.battery.powerWatts)),
-                    ("状态", store.current.battery.isCharging == true ? "充电中" : "未充电")
+                    ("功率", MetricFormatters.watts(store.current.battery.powerWatts))
                 ])
             }
-            section("磁盘") {
+            section("磁盘", color: Macaron.sky) {
                 metricGroup([
                     ("读取", MetricFormatters.throughput(store.current.diskReadBytesPerSecond)),
                     ("写入", MetricFormatters.throughput(store.current.diskWriteBytesPerSecond))
                 ])
             }
-            section("外部存储") {
+            section("外部存储", color: Macaron.lavender) {
                 if store.current.storageVolumes.isEmpty {
                     Text("未检测到外部存储").foregroundStyle(.secondary)
                 } else {
@@ -53,14 +51,14 @@ struct MonitorMenuView: View {
                     }
                 }
             }
-            section("显示器") {
+            section("显示器", color: Macaron.coral) {
                 if store.current.displays.isEmpty {
                     Text("未检测到显示器").foregroundStyle(.secondary)
                 } else {
                     metricGroup(store.current.displays.map { ($0.name, refreshRateText($0.refreshRate)) })
                 }
             }
-            section("温度") {
+            section("温度", color: Macaron.rose) {
                 if store.current.temperatures.isEmpty {
                     Text("高级温度数据不可用").foregroundStyle(.secondary)
                 } else {
@@ -118,7 +116,7 @@ struct MonitorMenuView: View {
                         }
                     }
                 }
-                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                .stroke(Macaron.sakura, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
             }
         }
         .frame(height: 36)
@@ -167,20 +165,30 @@ struct MonitorMenuView: View {
     }
 
     private func coreColor(_ usage: Double) -> Color {
-        switch usage {
-        case ..<0.5: return .green
-        case ..<0.8: return .yellow
-        default: return .red
-        }
+        Macaron.coreUsage(usage)
     }
 
     // MARK: - Row helpers
 
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(
+        _ title: String,
+        color: Color,
+        badge: MacaronBadge? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 7, height: 7)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                if let badge {
+                    Spacer()
+                    badge
+                }
+            }
             content()
         }
     }
@@ -229,6 +237,19 @@ struct MonitorMenuView: View {
         case 1.0: return "严重"
         default: return "正常"
         }
+    }
+
+    private func pressureColor(_ level: Double?) -> Color {
+        guard let level else { return .secondary }
+        switch level {
+        case 0.5: return Macaron.cream
+        case 1.0: return Macaron.rose
+        default: return Macaron.mint
+        }
+    }
+
+    private func batteryStatusColor() -> Color {
+        store.current.battery.isCharging == true ? Macaron.mint : Macaron.lavender
     }
 
     private func frequencyText(_ value: Double?) -> String {

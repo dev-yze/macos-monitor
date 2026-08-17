@@ -7,7 +7,14 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            section("设置") {
+            HStack {
+                Text("Mac 能耗监控")
+                    .font(.headline)
+                Spacer()
+                MacaronBadge(text: "v1.0.0", color: Macaron.lavender)
+            }
+            Divider()
+            section("设置", color: Macaron.lavender) {
                 Picker("采样间隔", selection: samplingIntervalBinding) {
                     Text("1 秒").tag(TimeInterval(1))
                     Text("2 秒").tag(TimeInterval(2))
@@ -20,7 +27,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            section("状态") {
+            section("状态", color: Macaron.mint) {
                 statusContent
             }
             HStack {
@@ -67,11 +74,10 @@ struct SettingsView: View {
             if let status = store.collectorStatuses[name] {
                 HStack {
                     Text(name)
+                        .font(.caption)
                     Spacer()
-                    Text(detail(for: status.state))
-                        .foregroundStyle(tint(for: status.state))
+                    MacaronBadge(text: detail(for: status.state), color: tint(for: status.state))
                 }
-                .font(.caption)
             }
         }
     }
@@ -91,16 +97,23 @@ struct SettingsView: View {
 
     private func tint(for state: CollectorStatus.State) -> Color {
         switch state {
-        case .running, .idle: return .secondary
-        case .unavailable, .failed: return .orange
+        case .running: return Macaron.mint
+        case .idle: return .secondary
+        case .unavailable: return Macaron.cream
+        case .failed: return Macaron.rose
         }
     }
 
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(_ title: String, color: Color, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 7, height: 7)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
             content()
         }
     }

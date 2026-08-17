@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var parameterPopover: NSPopover?
     private var settingsPopover: NSPopover?
+    private var clickOutsideMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -53,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleParameterPopover() {
         guard let button = statusItem?.button else { return }
         if let popover = parameterPopover, popover.isShown {
-            popover.performClose(nil)
+            closePopovers()
             return
         }
         closePopovers()
@@ -61,13 +62,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(rootView: MonitorMenuView(store: store))
         popover.behavior = .transient
         parameterPopover = popover
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        show(popover, relativeTo: button)
     }
 
     private func toggleSettingsPopover() {
         guard let button = statusItem?.button else { return }
         if let popover = settingsPopover, popover.isShown {
-            popover.performClose(nil)
+            closePopovers()
             return
         }
         closePopovers()
@@ -75,12 +76,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(rootView: SettingsView(store: store))
         popover.behavior = .transient
         settingsPopover = popover
+        show(popover, relativeTo: button)
+    }
+
+    private func show(_ popover: NSPopover, relativeTo button: NSStatusBarButton) {
+        // 激活 App，让 .transient 的「点击外部关闭」能正常生效
+        NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        installClickOutsideMonitor()
     }
 
     private func closePopovers() {
         parameterPopover?.performClose(nil)
         settingsPopover?.performClose(nil)
+        removeClickOutsideMonitor()
+    }
+
+    /// 兜底：监听全局鼠标点击，点击面板外部时关闭（菜单栏 app 的 transient 有时不生效）。
+    private func installClickOutsideMonitor() {
+        removeClickOutsideMonitor()
+        clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.closePopovers()
+            }
+        }
+    }
+
+    private func removeClickOutsideMonitor() {
+        if let monitor = clickOutsideMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickOutsideMonitor = nil
+        }
     }
 
     // MARK: - Menu bar title
