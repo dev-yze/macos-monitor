@@ -7,6 +7,7 @@ public final class MetricsStore {
     private enum Keys {
         static let samplingInterval = "samplingInterval"
         static let menuBarMetric = "menuBarMetric"
+        static let screenFramesPerSecondEnabled = "screenFramesPerSecondEnabled"
     }
 
     public private(set) var current: MetricsSnapshot
@@ -14,6 +15,7 @@ public final class MetricsStore {
     public private(set) var collectorStatuses: [String: CollectorStatus]
     public private(set) var samplingInterval: TimeInterval
     public private(set) var menuBarMetric: MenuBarMetric
+    public private(set) var screenFramesPerSecondEnabled: Bool
     private let historyWindow: TimeInterval
 
     public init(
@@ -37,6 +39,7 @@ public final class MetricsStore {
         } else {
             self.menuBarMetric = .power
         }
+        self.screenFramesPerSecondEnabled = defaults.bool(forKey: Keys.screenFramesPerSecondEnabled)
     }
 
     public func setSamplingInterval(_ interval: TimeInterval) {
@@ -47,6 +50,15 @@ public final class MetricsStore {
     public func setMenuBarMetric(_ metric: MenuBarMetric) {
         menuBarMetric = metric
         UserDefaults.standard.set(metric.rawValue, forKey: Keys.menuBarMetric)
+    }
+
+    public func setScreenFramesPerSecondEnabled(_ enabled: Bool) {
+        screenFramesPerSecondEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: Keys.screenFramesPerSecondEnabled)
+    }
+
+    public func setScreenFramesPerSecond(_ value: Double?) {
+        current.screenFramesPerSecond = value
     }
 
     public func merge(_ partial: MetricsSnapshot) {
@@ -72,6 +84,7 @@ public final class MetricsStore {
         if partial.systemPowerWatts != nil { merged.systemPowerWatts = partial.systemPowerWatts }
         if partial.diskReadBytesPerSecond != nil { merged.diskReadBytesPerSecond = partial.diskReadBytesPerSecond }
         if partial.diskWriteBytesPerSecond != nil { merged.diskWriteBytesPerSecond = partial.diskWriteBytesPerSecond }
+        if partial.screenFramesPerSecond != nil { merged.screenFramesPerSecond = partial.screenFramesPerSecond }
 
         current = merged
         history.append(merged)

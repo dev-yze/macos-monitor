@@ -21,4 +21,9 @@ final class MetricFormattersTests: XCTestCase {
         XCTAssertEqual(MetricFormatters.bytes(1_073_741_824), "1.0 GB")
         XCTAssertEqual(MetricFormatters.throughput(2_097_152), "2.0 MB/s")
     }
+
+    func testFormatsFramesPerSecond() {
+        XCTAssertEqual(MetricFormatters.framesPerSecond(59.6), "60 FPS")
+        XCTAssertEqual(MetricFormatters.framesPerSecond(nil), "-- FPS")
+    }
 }

@@ -14,7 +14,7 @@ set -euo pipefail
 # ==== 配置（按需修改）====
 APP_NAME="MacOSMonitorApp"
 BUNDLE_ID="com.zhangenyang.macosmonitor"
-VERSION="1.0.0"
+VERSION="1.0.2"
 # ========================
 
 APPLE_ID="${APPLE_ID:-}"

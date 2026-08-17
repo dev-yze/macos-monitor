@@ -135,6 +135,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
     public var systemPowerWatts: Double?
     public var diskReadBytesPerSecond: UInt64?
     public var diskWriteBytesPerSecond: UInt64?
+    public var screenFramesPerSecond: Double?
 
     public init(
         timestamp: Date = Date(),
@@ -147,7 +148,8 @@ public struct MetricsSnapshot: Equatable, Sendable {
         temperatures: [TemperatureMetric] = [],
         systemPowerWatts: Double? = nil,
         diskReadBytesPerSecond: UInt64? = nil,
-        diskWriteBytesPerSecond: UInt64? = nil
+        diskWriteBytesPerSecond: UInt64? = nil,
+        screenFramesPerSecond: Double? = nil
     ) {
         self.timestamp = timestamp
         self.cpu = cpu
@@ -160,6 +162,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
         self.systemPowerWatts = systemPowerWatts
         self.diskReadBytesPerSecond = diskReadBytesPerSecond
         self.diskWriteBytesPerSecond = diskWriteBytesPerSecond
+        self.screenFramesPerSecond = screenFramesPerSecond
     }
 }
 

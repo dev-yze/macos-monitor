@@ -11,7 +11,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "MacOSMonitorApp",
-            dependencies: ["MonitorCore"]
+            dependencies: ["MonitorCore"],
+            linkerSettings: [
+                .linkedFramework("ScreenCaptureKit")
+            ]
         ),
         .target(
             name: "MonitorCore",

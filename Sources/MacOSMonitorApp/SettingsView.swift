@@ -11,7 +11,7 @@ struct SettingsView: View {
                 Text("Mac 能耗监控")
                     .font(.headline)
                 Spacer()
-                MacaronBadge(text: "v1.0.0", color: Macaron.lavender)
+                MacaronBadge(text: "v1.0.2", color: Macaron.lavender)
             }
             Divider()
             section("设置", color: Macaron.lavender) {
@@ -26,6 +26,8 @@ struct SettingsView: View {
                         Text(metric.title).tag(metric)
                     }
                 }
+                Toggle("采集实时屏幕 FPS", isOn: screenFramesPerSecondBinding)
+                    .help("开启后需要屏幕录制权限，并会统计主显示器最近一秒的捕获帧数")
             }
             section("状态", color: Macaron.mint) {
                 statusContent
@@ -57,6 +59,13 @@ struct SettingsView: View {
         Binding(
             get: { store.menuBarMetric },
             set: { store.setMenuBarMetric($0) }
+        )
+    }
+
+    private var screenFramesPerSecondBinding: Binding<Bool> {
+        Binding(
+            get: { store.screenFramesPerSecondEnabled },
+            set: { store.setScreenFramesPerSecondEnabled($0) }
         )
     }
 

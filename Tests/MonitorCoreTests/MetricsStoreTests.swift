@@ -37,6 +37,23 @@ final class MetricsStoreTests: XCTestCase {
         XCTAssertEqual(store.collectorStatuses["高级指标"]?.state, .unavailable("未授权"))
     }
 
+    func testMergeUpdatesScreenFramesPerSecond() {
+        let store = MetricsStore(historyWindow: 300)
+
+        store.merge(MetricsSnapshot(screenFramesPerSecond: 59))
+
+        XCTAssertEqual(store.current.screenFramesPerSecond, 59)
+    }
+
+    func testSetScreenFramesPerSecondUpdatesLiveValueWithoutAddingHistorySample() {
+        let store = MetricsStore(historyWindow: 300)
+
+        store.setScreenFramesPerSecond(59)
+
+        XCTAssertEqual(store.current.screenFramesPerSecond, 59)
+        XCTAssertTrue(store.history.isEmpty)
+    }
+
     func testHasDataAndStale() {
         let store = MetricsStore(historyWindow: 300, samplingInterval: 2)
         XCTAssertFalse(store.hasData)

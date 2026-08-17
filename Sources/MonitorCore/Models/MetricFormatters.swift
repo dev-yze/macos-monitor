@@ -37,4 +37,9 @@ public enum MetricFormatters {
         guard let value else { return "--/s" }
         return "\(bytes(value))/s"
     }
+
+    public static func framesPerSecond(_ value: Double?) -> String {
+        guard let value else { return "-- FPS" }
+        return String(format: "%.0f FPS", value)
+    }
 }

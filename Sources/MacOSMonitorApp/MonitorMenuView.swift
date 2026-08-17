@@ -56,6 +56,9 @@ struct MonitorMenuView: View {
                     Text("未检测到显示器").foregroundStyle(.secondary)
                 } else {
                     metricGroup(store.current.displays.map { ($0.name, refreshRateText($0.refreshRate)) })
+                    if store.screenFramesPerSecondEnabled {
+                        metricRow("实时屏幕 FPS", MetricFormatters.framesPerSecond(store.current.screenFramesPerSecond))
+                    }
                 }
             }
             section("温度", color: Macaron.rose) {

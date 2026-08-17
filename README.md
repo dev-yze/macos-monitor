@@ -145,7 +145,7 @@ spctl -a -vv build/MacOSMonitorApp.app
 | 变量 | 默认值 |
 |---|---|
 | `BUNDLE_ID` | `com.zhangenyang.macosmonitor` |
-| `VERSION` | `1.0.0` |
+| `VERSION` | `1.0.2` |
 | `TEAM_ID` | 自动从钥匙串检测（可用 `TEAM_ID` 环境变量覆盖） |
 | `DEVELOPER_ID` | 自动从钥匙串检测（可用 `DEVELOPER_ID` 环境变量覆盖） |
 

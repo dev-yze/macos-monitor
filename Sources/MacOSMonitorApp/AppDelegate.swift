@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var samplingTask: Task<Void, Never>?
     private var advancedStream: PowermetricsStream?
+    private var screenFrameRateStream: ScreenFrameRateStream?
     private var statusItem: NSStatusItem?
     private var parameterPopover: NSPopover?
     private var settingsPopover: NSPopover?
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
         observeTitleChanges()
+        observeScreenFrameRateSetting()
 
         samplingTask = Task { [weak self] in
             await self?.runBasicSamplingLoop()
@@ -27,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         samplingTask?.cancel()
         advancedStream?.stop()
+        screenFrameRateStream?.stop()
     }
 
     // MARK: - Status item
@@ -157,6 +160,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store.updateStatus(name: "基础指标", state: .running)
 
             try? await Task.sleep(nanoseconds: UInt64(store.samplingInterval * 1_000_000_000))
+        }
+    }
+
+    // MARK: - Optional screen frame rate sampling
+
+    private func observeScreenFrameRateSetting() {
+        withObservationTracking {
+            _ = store.screenFramesPerSecondEnabled
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.configureScreenFrameRateStream()
+                self?.observeScreenFrameRateSetting()
+            }
+        }
+        configureScreenFrameRateStream()
+    }
+
+    private func configureScreenFrameRateStream() {
+        screenFrameRateStream?.stop()
+        screenFrameRateStream = nil
+        store.setScreenFramesPerSecond(nil)
+
+        guard store.screenFramesPerSecondEnabled else {
+            store.updateStatus(name: "屏幕 FPS", state: .idle)
+            return
+        }
+
+        let stream = ScreenFrameRateStream()
+        screenFrameRateStream = stream
+        stream.onFrameRate = { [weak self, weak stream] fps in
+            Task { @MainActor [weak self] in
+                guard self?.screenFrameRateStream === stream else { return }
+                self?.store.setScreenFramesPerSecond(fps)
+                self?.store.updateStatus(name: "屏幕 FPS", state: .running)
+            }
+        }
+        stream.onFailure = { [weak self, weak stream] message in
+            Task { @MainActor [weak self] in
+                guard self?.screenFrameRateStream === stream else { return }
+                self?.store.setScreenFramesPerSecond(nil)
+                self?.store.updateStatus(name: "屏幕 FPS", state: .failed(message))
+            }
+        }
+
+        Task { [weak self, weak stream] in
+            do {
+                try await stream?.start()
+            } catch {
+                guard self?.screenFrameRateStream === stream else { return }
+                self?.store.setScreenFramesPerSecond(nil)
+                self?.store.updateStatus(name: "屏幕 FPS", state: .unavailable(error.localizedDescription))
+                self?.screenFrameRateStream = nil
+            }
         }
     }
 
