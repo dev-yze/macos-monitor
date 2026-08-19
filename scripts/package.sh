@@ -14,7 +14,7 @@ set -euo pipefail
 # ==== 配置（按需修改）====
 APP_NAME="MacOSMonitorApp"
 BUNDLE_ID="com.zhangenyang.macosmonitor"
-VERSION="1.1.0"
+VERSION="1.1.1"
 # ========================
 
 # 透传给 swift build 的额外参数（如沙箱受限环境下需要 --disable-sandbox）
@@ -53,7 +53,23 @@ echo "==> 2/6 打包 .app"
 APP="build/${APP_NAME}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/Resources"
 cp ".build/release/${APP_NAME}" "$APP/Contents/MacOS/${APP_NAME}"
+
+# 生成 App 图标（从 PNG 生成各尺寸 → .icns → 拷进 bundle）
+if [[ -f "Assets/${APP_NAME}Icon.png" ]]; then
+    echo "    生成 AppIcon.icns …"
+    ICONSET="build/AppIcon.iconset"
+    rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+    for size in 16 32 128 256 512; do
+        sips -z "$size" "$size" "Assets/${APP_NAME}Icon.png" \
+            --out "$ICONSET/icon_${size}x${size}.png" >/dev/null 2>&1
+        sips -z "$((size * 2))" "$((size * 2))" "Assets/${APP_NAME}Icon.png" \
+            --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null 2>&1
+    done
+    iconutil -c icns "$ICONSET" -o "build/AppIcon.icns" >/dev/null 2>&1
+    cp "build/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -78,6 +94,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
 PLIST

@@ -3,6 +3,13 @@
 所有重要变更都会记录在这个文件里，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.1] - 2026-08-19
+
+### 新增
+- `Assets/MacOSMonitorAppIcon.png` 作为 App 图标源文件（1254×1254）
+- `package.sh` 新增图标构建步骤：打包时自动从 PNG 生成各尺寸 `.iconset` → 编译为 `AppIcon.icns` → 拷进 `.app/Contents/Resources/`
+- Info.plist 新增 `CFBundleIconFile`，Finder / Dock / 关于窗口显示正式图标
+
 ## [1.1.0] - 2026-08-19
 
 ### 新增
