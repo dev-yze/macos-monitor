@@ -19,6 +19,7 @@ public final class PowermetricsStream: @unchecked Sendable {
     /// If no sample arrives within this window after launch, treat the stream as failed.
     private static let startupTimeout: TimeInterval = 15
 
+    private let path: String
     private let lock = NSLock()
     private var fileHandle: FileHandle?
     private var readBuffer = Data()
@@ -26,15 +27,24 @@ public final class PowermetricsStream: @unchecked Sendable {
     private var watchdog: DispatchWorkItem?
     private var receivedFirstSample = false
 
-    public init() {}
+    public init(fifoPath: String = PowermetricsStream.fifoPath) {
+        self.path = fifoPath
+    }
 
     /// Opens the helper's FIFO for reading. Throws `helperNotRunning` when the
     /// helper (LaunchDaemon) has not created the pipe yet.
     public func start() throws {
-        let fd = open(Self.fifoPath, O_RDONLY | O_NONBLOCK)
+        let fd = open(path, O_RDONLY | O_NONBLOCK)
         guard fd >= 0 else {
             throw PowermetricsStreamError.helperNotRunning
         }
+        // 排空管道：丢弃（重连前）积压在管道缓冲里的旧样本与不完整数据。
+        // parser 用 Date() 打时间戳，旧字节一旦进入 splitter 会被当成「现在」
+        // 的样本解析出来，污染历史与 sparkline。fd 仍是 O_NONBLOCK，read 在
+        // 无数据（EAGAIN）或无 writer（EOF）时立即结束。
+        var drainChunk = [UInt8](repeating: 0, count: 64 * 1024)
+        while read(fd, &drainChunk, drainChunk.count) > 0 {}
+
         let flags = fcntl(fd, F_GETFL)
         if flags >= 0 { _ = fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) }
 

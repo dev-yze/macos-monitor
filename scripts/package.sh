@@ -14,8 +14,11 @@ set -euo pipefail
 # ==== 配置（按需修改）====
 APP_NAME="MacOSMonitorApp"
 BUNDLE_ID="com.zhangenyang.macosmonitor"
-VERSION="1.0.2"
+VERSION="1.1.0"
 # ========================
+
+# 透传给 swift build 的额外参数（如沙箱受限环境下需要 --disable-sandbox）
+SWIFT_BUILD_FLAGS="${SWIFT_BUILD_FLAGS:-}"
 
 APPLE_ID="${APPLE_ID:-}"
 NOTARY_PASSWORD="${NOTARY_PASSWORD:-}"
@@ -44,7 +47,7 @@ echo "签名身份：$DEVELOPER_ID"
 cd "$(dirname "$0")/.."
 
 echo "==> 1/6 构建 release"
-swift build -c release
+swift build -c release $SWIFT_BUILD_FLAGS
 
 echo "==> 2/6 打包 .app"
 APP="build/${APP_NAME}.app"

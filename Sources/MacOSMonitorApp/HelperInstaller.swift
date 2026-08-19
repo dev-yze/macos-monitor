@@ -13,12 +13,18 @@ enum HelperInstaller {
     private static let helperScriptPath = "/Library/PrivilegedHelperTools/com.zhangenyang.macosmonitor.helper.sh"
     private static let plistPath = "/Library/LaunchDaemons/com.zhangenyang.macosmonitor.helper.plist"
 
+    /// 版本标记：已安装脚本不含此行时触发一次性升级安装。
+    /// v2：FIFO 权限 666 → 0660 root:admin（本机任意进程不再能伪造监控数据）。
+    private static let scriptVersionMarker = "# macosmonitor-helper version: 2"
+
     private static let scriptContent = """
     #!/bin/sh
+    # macosmonitor-helper version: 2
     FIFO=/tmp/macosmonitor.powermetrics.fifo
     rm -f "$FIFO"
     mkfifo "$FIFO" 2>/dev/null
-    chmod 666 "$FIFO" 2>/dev/null
+    chown root:admin "$FIFO" 2>/dev/null
+    chmod 660 "$FIFO" 2>/dev/null
     exec /usr/bin/powermetrics --samplers cpu_power,gpu_power --sample-rate 2000 --sample-count -1 --buffer-size 1 > "$FIFO" 2>/dev/null
     """
 
@@ -54,8 +60,17 @@ enum HelperInstaller {
         FileManager.default.fileExists(atPath: plistPath)
     }
 
-    /// Installs the LaunchDaemon, presenting the administrator password prompt
-    /// once. Call off the main thread.
+    /// 已安装但 helper 脚本是旧版本：需要一次性授权升级（脚本原地替换 + 重启 daemon）。
+    static var needsUpgrade: Bool {
+        guard isInstalled() else { return false }
+        guard let content = try? String(contentsOfFile: helperScriptPath, encoding: .utf8) else {
+            return true
+        }
+        return !content.contains(scriptVersionMarker)
+    }
+
+    /// Installs (or upgrades) the LaunchDaemon, presenting the administrator
+    /// password prompt once. Call off the main thread.
     static func install() throws {
         let tmpScript = "/tmp/macosmonitor-helper.sh"
         let tmpPlist = "/tmp/macosmonitor-helper.plist"
@@ -70,14 +85,31 @@ enum HelperInstaller {
         launchctl unload \(plistPath) 2>/dev/null || true
         launchctl load \(plistPath)
         """
+        try runPrivilegedShell(shell, failureDescription: "安装失败")
+    }
 
+    /// 卸载 LaunchDaemon、helper 脚本与命名管道。需要一次管理员授权。
+    /// Call off the main thread.
+    static func uninstall() throws {
+        let shell = """
+        launchctl unload \(plistPath) 2>/dev/null || true
+        rm -f \(plistPath)
+        rm -f \(helperScriptPath)
+        rm -f \(PowermetricsStream.fifoPath)
+        """
+        try runPrivilegedShell(shell, failureDescription: "卸载失败")
+    }
+
+    // MARK: - Privileged shell
+
+    private static func runPrivilegedShell(_ shell: String, failureDescription: String) throws {
         let appleScript = "do shell script \"\(shell)\" with administrator privileges"
         let result = runProcess("/usr/bin/osascript", arguments: ["-e", appleScript])
         guard result.exitCode == 0 else {
             if isUserDenied(result.stderr, result.stdout) {
                 throw HelperInstallerError.authorizationDenied
             }
-            throw HelperInstallerError.installFailed(firstNonEmpty(result.stderr, result.stdout) ?? "安装失败")
+            throw HelperInstallerError.installFailed(firstNonEmpty(result.stderr, result.stdout) ?? failureDescription)
         }
     }
 

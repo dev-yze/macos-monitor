@@ -30,7 +30,7 @@ struct MonitorMenuView: View {
                     ("Swap", MetricFormatters.bytes(store.current.memory.swapUsedBytes))
                 ])
             }
-            section("电池", color: Macaron.peach, badge: MacaronBadge(text: store.current.battery.isCharging == true ? "充电中" : "未充电", color: batteryStatusColor())) {
+            section("电池", color: Macaron.peach, badge: batteryBadge()) {
                 metricGroup([
                     ("电量", MetricFormatters.percent(store.current.battery.percent)),
                     ("功率", MetricFormatters.watts(store.current.battery.powerWatts))
@@ -251,8 +251,16 @@ struct MonitorMenuView: View {
         }
     }
 
-    private func batteryStatusColor() -> Color {
-        store.current.battery.isCharging == true ? Macaron.mint : Macaron.lavender
+    private func batteryBadge() -> MacaronBadge {
+        switch store.current.battery.state {
+        case .charging:
+            return MacaronBadge(text: "充电中", color: Macaron.mint)
+        case .notCharging:
+            return MacaronBadge(text: "未充电", color: Macaron.lavender)
+        case .unavailable:
+            // 桌面 Mac 无电池：所有字段均为 nil，不能误显示「未充电」。
+            return MacaronBadge(text: "无电池", color: .gray)
+        }
     }
 
     private func frequencyText(_ value: Double?) -> String {

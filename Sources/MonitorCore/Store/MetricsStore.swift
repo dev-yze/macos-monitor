@@ -8,6 +8,7 @@ public final class MetricsStore {
         static let samplingInterval = "samplingInterval"
         static let menuBarMetric = "menuBarMetric"
         static let screenFramesPerSecondEnabled = "screenFramesPerSecondEnabled"
+        static let advancedMonitoringEnabled = "advancedMonitoringEnabled"
     }
 
     public private(set) var current: MetricsSnapshot
@@ -16,19 +17,24 @@ public final class MetricsStore {
     public private(set) var samplingInterval: TimeInterval
     public private(set) var menuBarMetric: MenuBarMetric
     public private(set) var screenFramesPerSecondEnabled: Bool
+    /// 是否启用高级监控（root LaunchDaemon + powermetrics）。用户卸载后台
+    /// 服务后置 false，避免下次启动又弹安装授权框。
+    public private(set) var advancedMonitoringEnabled: Bool
     private let historyWindow: TimeInterval
+    private let defaults: UserDefaults
 
     public init(
         current: MetricsSnapshot = MetricsSnapshot(),
         historyWindow: TimeInterval = 300,
-        samplingInterval: TimeInterval = 2
+        samplingInterval: TimeInterval = 2,
+        defaults: UserDefaults = .standard
     ) {
         self.current = current
         self.history = []
         self.collectorStatuses = [:]
         self.historyWindow = historyWindow
+        self.defaults = defaults
 
-        let defaults = UserDefaults.standard
         if defaults.object(forKey: Keys.samplingInterval) != nil {
             self.samplingInterval = defaults.double(forKey: Keys.samplingInterval)
         } else {
@@ -40,55 +46,56 @@ public final class MetricsStore {
             self.menuBarMetric = .power
         }
         self.screenFramesPerSecondEnabled = defaults.bool(forKey: Keys.screenFramesPerSecondEnabled)
+        if defaults.object(forKey: Keys.advancedMonitoringEnabled) != nil {
+            self.advancedMonitoringEnabled = defaults.bool(forKey: Keys.advancedMonitoringEnabled)
+        } else {
+            self.advancedMonitoringEnabled = true
+        }
     }
 
     public func setSamplingInterval(_ interval: TimeInterval) {
         samplingInterval = interval
-        UserDefaults.standard.set(interval, forKey: Keys.samplingInterval)
+        defaults.set(interval, forKey: Keys.samplingInterval)
     }
 
     public func setMenuBarMetric(_ metric: MenuBarMetric) {
         menuBarMetric = metric
-        UserDefaults.standard.set(metric.rawValue, forKey: Keys.menuBarMetric)
+        defaults.set(metric.rawValue, forKey: Keys.menuBarMetric)
     }
 
     public func setScreenFramesPerSecondEnabled(_ enabled: Bool) {
         screenFramesPerSecondEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: Keys.screenFramesPerSecondEnabled)
+        defaults.set(enabled, forKey: Keys.screenFramesPerSecondEnabled)
+    }
+
+    public func setAdvancedMonitoringEnabled(_ enabled: Bool) {
+        // 幂等：同值重复设置直接忽略。observation 对同值 set 也会触发变更回调，
+        // 不去重会导致下游「配置/安装」逻辑被重复执行（重复弹授权框）。
+        guard advancedMonitoringEnabled != enabled else { return }
+        advancedMonitoringEnabled = enabled
+        defaults.set(enabled, forKey: Keys.advancedMonitoringEnabled)
     }
 
     public func setScreenFramesPerSecond(_ value: Double?) {
         current.screenFramesPerSecond = value
     }
 
-    public func merge(_ partial: MetricsSnapshot) {
+    /// Merges a partial snapshot into the current state.
+    ///
+    /// `recordsHistory` controls whether the merged result is appended to the
+    /// history window. Callers that push high-frequency partial updates
+    /// (e.g. every powermetrics sample) should pass `false` so history holds
+    /// exactly one full snapshot per sampling cycle instead of interleaved
+    /// half-populated ones.
+    public func merge(_ partial: MetricsSnapshot, recordsHistory: Bool = true) {
         var merged = current
-        merged.timestamp = partial.timestamp
-
-        if partial.cpu.usage != nil { merged.cpu.usage = partial.cpu.usage }
-        if partial.cpu.frequencyMHz != nil { merged.cpu.frequencyMHz = partial.cpu.frequencyMHz }
-        if !partial.cpu.perCoreUsage.isEmpty { merged.cpu.perCoreUsage = partial.cpu.perCoreUsage }
-        if !partial.cpu.perCoreLabels.isEmpty { merged.cpu.perCoreLabels = partial.cpu.perCoreLabels }
-        if partial.gpu.usage != nil { merged.gpu.usage = partial.gpu.usage }
-        if partial.gpu.powerWatts != nil { merged.gpu.powerWatts = partial.gpu.powerWatts }
-        if partial.memory.usedBytes != nil { merged.memory.usedBytes = partial.memory.usedBytes }
-        if partial.memory.totalBytes != nil { merged.memory.totalBytes = partial.memory.totalBytes }
-        if partial.memory.pressure != nil { merged.memory.pressure = partial.memory.pressure }
-        if partial.memory.swapUsedBytes != nil { merged.memory.swapUsedBytes = partial.memory.swapUsedBytes }
-        if partial.battery.percent != nil { merged.battery.percent = partial.battery.percent }
-        if partial.battery.powerWatts != nil { merged.battery.powerWatts = partial.battery.powerWatts }
-        if partial.battery.isCharging != nil { merged.battery.isCharging = partial.battery.isCharging }
-        if !partial.storageVolumes.isEmpty { merged.storageVolumes = partial.storageVolumes }
-        if !partial.displays.isEmpty { merged.displays = partial.displays }
-        if !partial.temperatures.isEmpty { merged.temperatures = partial.temperatures }
-        if partial.systemPowerWatts != nil { merged.systemPowerWatts = partial.systemPowerWatts }
-        if partial.diskReadBytesPerSecond != nil { merged.diskReadBytesPerSecond = partial.diskReadBytesPerSecond }
-        if partial.diskWriteBytesPerSecond != nil { merged.diskWriteBytesPerSecond = partial.diskWriteBytesPerSecond }
-        if partial.screenFramesPerSecond != nil { merged.screenFramesPerSecond = partial.screenFramesPerSecond }
+        merged.merge(partial)
 
         current = merged
-        history.append(merged)
-        trimHistory(now: partial.timestamp)
+        if recordsHistory {
+            history.append(merged)
+            trimHistory(now: partial.timestamp)
+        }
     }
 
     public func updateStatus(name: String, state: CollectorStatus.State) {
